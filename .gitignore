@@ -1,3 +1,4 @@
 sample_image.*
 .venv/
-resize_example.*
+_pycache_/
+*.pyc

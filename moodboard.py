@@ -2,12 +2,13 @@ import tkinter as tk
 from tkinter import Canvas
 from PIL import Image, ImageTk
 
-
 class MoodboardApp:
+    from resize_utils import resize_image, draw_resize_rectangle, update_resize_rectangle, remove_resize_rectangle
+
     def __init__(self, root):
         self.root = root
-        self.root.title("Simple Moodboard")
-        self.root.geometry("1200x800")
+        self.root.title("Moodboard")
+        self.root.geometry("1200x1000")
         
         # Create canvas
         self.canvas = Canvas(root, bg='beige')
@@ -17,6 +18,12 @@ class MoodboardApp:
         self.dragging = None
         self.drag_start_x = 0
         self.drag_start_y = 0
+
+        # Store current resizing state
+        self.resizing = None 
+        self.resize_corner = None
+        self.original_bbox = None
+        self.selected_item = None
         
         # Bind mouse events
         self.canvas.bind("<Button-1>", self.on_click)
@@ -51,10 +58,14 @@ class MoodboardApp:
             # Add to canvas
             image_id = self.canvas.create_image(x, y, image=photo, anchor=tk.NW)
             
-            # Store reference to prevent garbage collection
+            # Store image reference
             if not hasattr(self.canvas, 'images'):
-                self.canvas.images = []
-            self.canvas.images.append(photo)
+                self.canvas.images = {}
+            self.canvas.images[image_id] = {
+                'photo': photo,
+                'pil_image': img.copy(),
+                'path': image_path
+            }
             
         except Exception as e:
             print(f"Error loading image: {e}")
@@ -70,20 +81,43 @@ class MoodboardApp:
         """
         # Find items at click position 
         items = self.canvas.find_overlapping(event.x-1, event.y-1, event.x+1, event.y+1)
-
-        if items:
+    
+        # Check if clicked a resize point
+        for item in items:
+            tags = self.canvas.gettags(item)
+            if "resize_point" in tags:
+                # Determine which corner based on item ID
+                if hasattr(self, '_resizepoint1') and item == self._resizepoint1:
+                    self.resize_corner = 'top-left'
+                elif hasattr(self, '_resizepoint2') and item == self._resizepoint2:
+                    self.resize_corner = 'top-right'
+                elif hasattr(self, '_resizepoint3') and item == self._resizepoint3:
+                    self.resize_corner = 'bottom-right'
+                elif hasattr(self, '_resizepoint4') and item == self._resizepoint4:
+                    self.resize_corner = 'bottom-left'
+                
+                self.resizing = self.selected_item
+                self.drag_start_x = event.x
+                self.drag_start_y = event.y
+                self.original_bbox = self.canvas.bbox(self.selected_item)
+                return
+        
+        # Find items at click position
+        image_items = [item for item in items if "resize_point" not in self.canvas.gettags(item)]
+        
+        if image_items:
             # Draw a rectangle in each corner of the selected item
-            self.draw_resize_rectangle(items[-1])
-        else:
-            self.remove_resize_rectangle()
+            self.selected_item = image_items[-1]
+            self.draw_resize_rectangle(self.selected_item)
             
-        # Only drag if we actually clicked on an item
-        if items:
-            self.dragging = items[-1]  # Get topmost item
+            # Start dragging
+            self.dragging = image_items[-1]
             self.drag_start_x = event.x
             self.drag_start_y = event.y
         else:
+            self.remove_resize_rectangle()
             self.dragging = None
+            self.selected_item = None
     
     def on_drag(self, event):
         """
@@ -94,7 +128,10 @@ class MoodboardApp:
         event : tk.Event
             The mouse event of dragging
         """
-        if self.dragging:
+        if self.resizing:
+            # Handle resizing
+            self.resize_image(event)
+        elif self.dragging:
             # Calculate movement
             dx = event.x - self.drag_start_x
             dy = event.y - self.drag_start_y
@@ -102,7 +139,6 @@ class MoodboardApp:
             # Move the item
             self.canvas.move(self.dragging, dx, dy)
             self.update_resize_rectangle(self.dragging)
-            
             
             # Update drag start position
             self.drag_start_x = event.x
@@ -118,48 +154,9 @@ class MoodboardApp:
             The mouse event of releasing the button
         """
         self.dragging = None
-
-    def draw_resize_rectangle(self, item_id):
-        """
-        Draw a rectangle around the given item to indicate it can be resized
-        
-        Parameters:
-        ------------
-        item_id : int
-            The canvas item ID to draw the rectangle around
-        """
-        bbox = self.canvas.bbox(item_id)
-        self._current_resize_rect = self.canvas.create_rectangle(bbox, tags="resize_point")
-        self._resizepoint1 = self.canvas.create_rectangle(bbox[0]-3, bbox[1]-3, bbox[0]+3, bbox[1]+3, tags="resize_point", fill='#000000')
-        self._resizepoint2 = self.canvas.create_rectangle(bbox[2]-3, bbox[1]-3, bbox[2]+3, bbox[1]+3, tags="resize_point", fill='#000000')
-        self._resizepoint3 = self.canvas.create_rectangle(bbox[2]-3, bbox[3]-3, bbox[2]+3, bbox[3]+3, tags="resize_point", fill='#000000')
-        self._resizepoint4 = self.canvas.create_rectangle(bbox[0]-3, bbox[3]-3, bbox[0]+3, bbox[3]+3, tags="resize_point", fill='#000000')
-
-    def update_resize_rectangle(self, item_id):
-        """
-        Update the resize rectangle position
-
-        Parameters:
-        ------------
-        item_id : int
-            The canvas item ID to update the rectangle for
-        """
-        self.remove_resize_rectangle()
-        bbox = self.canvas.bbox(item_id)
-        self.canvas.coords(self._current_resize_rect, bbox)
-        self.canvas.coords(self._resizepoint1, bbox[0]-3, bbox[1]-3, bbox[0]+3, bbox[1]+3)
-        self.canvas.coords(self._resizepoint2, bbox[2]-3, bbox[1]-3, bbox[2]+3, bbox[1]+3)
-        self.canvas.coords(self._resizepoint3, bbox[2]-3, bbox[3]-3, bbox[2]+3, bbox[3]+3)
-        self.canvas.coords(self._resizepoint4, bbox[0]-3, bbox[3]-3, bbox[0]+3, bbox[3]+3)
-        self.draw_resize_rectangle(item_id)
-
-    def remove_resize_rectangle(self):
-        """
-        Remove the resize rectangle and points from the canvas
-        """
-        # self.canvas.delete(self._current_resize_rect if hasattr(self, '_current_resize_rect') else None)
-        for x in self.canvas.find_withtag("resize_point"):
-            self.canvas.delete(x)
+        self.resizing = None
+        self.resize_corner = None
+        self.original_bbox = None
 
 
 # Run the app
