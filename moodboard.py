@@ -25,10 +25,12 @@ class MoodboardApp:
         self.original_bbox = None
         self.selected_item = None
         
-        # Bind mouse events
+        # Bind mouse and key events
         self.canvas.bind("<Button-1>", self.on_click)
         self.canvas.bind("<B1-Motion>", self.on_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_release)
+        self.root.bind("<Delete>", self.on_delete)
+        self.root.bind("<BackSpace>", self.on_delete)
         
         # Add a sample image
         self.add_image("sample_image.jpg", 400, 100)
@@ -157,6 +159,20 @@ class MoodboardApp:
         self.resizing = None
         self.resize_corner = None
         self.original_bbox = None
+
+    def on_delete(self, event):
+        """
+        Handle delete key press to remove selected item
+
+        Parameters:
+        ------------
+        event : tk.Event
+            The keyboard event of pressing delete
+        """
+        if self.selected_item:
+            self.canvas.delete(self.selected_item)
+            self.remove_resize_rectangle()
+            self.selected_item = None
 
 
 # Run the app

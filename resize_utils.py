@@ -9,6 +9,7 @@ def draw_resize_rectangle(self, item_id):
     item_id : int
         The canvas item ID to draw the rectangle around
     """
+    self.remove_resize_rectangle()
     bbox = self.canvas.bbox(item_id)
     self._current_resize_rect = self.canvas.create_rectangle(bbox, tags="resize_border")
     self._resizepoint1 = self.canvas.create_rectangle(bbox[0]-3, bbox[1]-3, bbox[0]+3, bbox[1]+3, tags="resize_point", fill='#000000')
