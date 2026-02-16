@@ -2,3 +2,4 @@ sample_image*
 .venv/
 _pycache_/
 *.pyc
+*.db

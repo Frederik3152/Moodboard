@@ -313,6 +313,6 @@ class MoodboardApp:
 
 
 # Run the app
-root = tk.Tk()
-app = MoodboardApp(root)
-root.mainloop()
+# root = tk.Tk()
+# app = MoodboardApp(root)
+# root.mainloop()
