@@ -1,6 +1,7 @@
 import tkinter as tk
-from tkinter import Canvas
+from tkinter import Canvas, ALL
 from PIL import Image, ImageTk
+
 
 class MoodboardApp:
     from resize_utils import resize_image, draw_resize_rectangle, update_resize_rectangle, remove_resize_rectangle
@@ -137,7 +138,9 @@ class MoodboardApp:
             The mouse event of clicking
         """
         # Find items at click position 
-        items = self.canvas.find_overlapping(event.x-1, event.y-1, event.x+1, event.y+1)
+        cx = self.canvas.canvasx(event.x)
+        cy = self.canvas.canvasy(event.y)
+        items = self.canvas.find_overlapping(cx-1, cy-1, cx+1, cy+1)
     
         # Check if clicked a resize point
         for item in items:
@@ -175,6 +178,7 @@ class MoodboardApp:
             self.remove_resize_rectangle()
             self.dragging = None
             self.selected_item = None
+            self.canvas.scan_mark(event.x, event.y)
     
     def on_drag(self, event):
         """
@@ -200,6 +204,8 @@ class MoodboardApp:
             # Update drag start position
             self.drag_start_x = event.x
             self.drag_start_y = event.y
+        elif not self.resizing and not self.dragging:
+            self.canvas.scan_dragto(event.x, event.y, gain=1)
     
     def on_release(self, event):
         """
